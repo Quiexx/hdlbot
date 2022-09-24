@@ -158,10 +158,10 @@ async def callback_answer_query(call: CallbackQuery, state: FSMContext, *args, *
         categoties = [crud.get_category(db, cat.category_id) for cat in scores]
 
         db.close()
-        reply_scores = "\nВаши баллы\n\tАктивные:{}\n\tНеактивные:{}"
-        active_scores = ''.join([f"\n\t\t{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if sc.active])
+        reply_scores = "\n" + messages["scores"]
+        active_scores = ''.join([f"\n •{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if sc.active])
         inactive_scores = ''.join(
-            [f"\n\t\t{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if not sc.active])
+            [f"\n •{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if not sc.active])
         reply += reply_scores.format(active_scores, inactive_scores)
 
         disable_buttons(call)
@@ -233,7 +233,7 @@ async def register_user(message: Message, state: FSMContext, *args, **kwargs):
         else:
             message.text = "/start"
 
-    await message.answer("Тут должны быть инструкции")
+    await message.answer(messages["instructions"])
     await state.finish()
     await handle_start_message(message, state, *args, **kwargs)
 
@@ -251,7 +251,7 @@ async def handle_scores_command(message: Message, state: FSMContext, *args, **kw
 
     if scores:
         categoties = [crud.get_category(db, cat.category_id) for cat in scores]
-        reply_scores = "\nВаши баллы\n\tАктивные:{}\n\tНеактивные:{}"
+        reply_scores = "\n" + messages["scores"]
         active_scores = ''.join([f"\n\t\t{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if sc.active])
         inactive_scores = ''.join(
             [f"\n\t\t{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if not sc.active])
@@ -272,10 +272,10 @@ async def handle_shop_command(message: Message, state: FSMContext, *args, **kwar
 
     if scores:
         categoties = [crud.get_category(db, cat.category_id) for cat in scores]
-        scores_mes = "\nВаши баллы\n\tАктивные:{}\n\tНеактивные:{}"
-        active_scores = ''.join([f"\n\t\t{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if sc.active])
+        scores_mes = "\n" + messages["scores"]
+        active_scores = ''.join([f"\n •{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if sc.active])
         inactive_scores = ''.join(
-            [f"\n\t\t{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if not sc.active])
+            [f"\n •{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if not sc.active])
         scores_mes = scores_mes.format(active_scores, inactive_scores)
     else:
         scores_mes = "У вас пока нет баллов"
@@ -283,9 +283,9 @@ async def handle_shop_command(message: Message, state: FSMContext, *args, **kwar
     shop_requests = crud.get_shop_requests_by_status(db, message.chat.id, "WAITING")
     db.close()
 
-    reply = "TODO: добавить правила покупки\nТы можешь обменять свои баллы на мерч:\n"
-    reply += "".join([f"\n{m.name}: цена - {m.cost} очков, осталось {m.count} шт" for m in merch])
-    reply += scores_mes
+    reply = messages["shop_rules"]
+    reply += "".join([f"\n •{m.name}: цена - {m.cost} баллов, осталось {m.count} шт" for m in merch])
+    reply += "\n" + scores_mes
     markup = InlineKeyboardMarkup()
 
     no_shop_reqs = len(shop_requests) == 0
@@ -312,7 +312,7 @@ async def callback_shopreq_query(call: CallbackQuery, state: FSMContext, *args, 
 
     shop_request = crud.create_shop_request(db, call.message.chat.id, status="WAITING")
     db.close()
-    reply = f"Код вашей заявки: {shop_request.id}\nПокажите этот код на стенде, чтобы обменять ваши баллы на мерч"
+    reply = f"Код вашей заявки: {shop_request.id}\nПокажите этот код на стенде, чтобы обменять ваши баллы на призы"
     await call.message.answer(reply)
     await call.answer()
     db = SessionLocal()
@@ -322,10 +322,10 @@ async def callback_shopreq_query(call: CallbackQuery, state: FSMContext, *args, 
 
     if scores:
         categoties = [crud.get_category(db, cat.category_id) for cat in scores]
-        scores_mes = "\nБаллы:\n\tАктивные:{}\n\tНеактивные:{}"
-        active_scores = ''.join([f"\n\t\t{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if sc.active])
+        scores_mes = "\n" + messages["scores"]
+        active_scores = ''.join([f"\n •{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if sc.active])
         inactive_scores = ''.join(
-            [f"\n\t\t{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if not sc.active])
+            [f"\n •{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if not sc.active])
         scores_mes = scores_mes.format(active_scores, inactive_scores)
     else:
         scores_mes = "У пользователя нет баллов"
