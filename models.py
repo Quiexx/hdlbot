@@ -55,3 +55,11 @@ class UsersScore(Base):
     user = relationship(Users, backref=backref("users_score", cascade="all,delete"))
     category = relationship(Category, backref=backref("users_score", cascade="all,delete"))
 
+
+class Merch(Base):
+    __tablename__ = "merch"
+
+    id = Column(String, primary_key=True, index=True)
+    name = Column(String, primary_key=True, index=True)
+    cost = Column(Integer)
+    count = Column(Integer)

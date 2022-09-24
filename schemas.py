@@ -28,11 +28,11 @@ class QuestionBase(BaseModel):
     score: int
 
 
-class QuestionCreate(CategoryBase):
+class QuestionCreate(QuestionBase):
     pass
 
 
-class Question(CategoryBase):
+class Question(QuestionBase):
     id: str
     category_id: str
 
@@ -45,11 +45,11 @@ class UsersBase(BaseModel):
     chat_id: int
 
 
-class UsersCreate(CategoryBase):
+class UsersCreate(UsersBase):
     pass
 
 
-class Users(CategoryBase):
+class Users(UsersBase):
     id: int
 
     class Config:
@@ -58,14 +58,14 @@ class Users(CategoryBase):
 
 class UsersQuestionBase(BaseModel):
     answers: List[str]
-    score = int
+    score: int
 
 
-class UsersQuestionCreate(CategoryBase):
+class UsersQuestionCreate(UsersQuestionBase):
     pass
 
 
-class UsersQuestion(CategoryBase):
+class UsersQuestion(UsersQuestionBase):
     users_id: int
     chat_id: int
     question_id: str
@@ -75,16 +75,32 @@ class UsersQuestion(CategoryBase):
 
 
 class UsersScoreBase(BaseModel):
-    score = int
+    score: int
 
 
-class UsersScoreCreate(CategoryBase):
+class UsersScoreCreate(UsersScoreBase):
     pass
 
 
-class UsersScore(CategoryBase):
+class UsersScore(UsersScoreBase):
     users_id: int
     category_id: str
+
+    class Config:
+        orm_mode = True
+
+
+class MerchBase(BaseModel):
+    name: str
+    cost: int
+    count: int
+
+class MerchCreate(MerchBase):
+    pass
+
+
+class Merch(MerchBase):
+    id: str
 
     class Config:
         orm_mode = True

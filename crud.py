@@ -175,7 +175,7 @@ def create_user_score(db: Session, users_id: str, category_id: str):
 def update_user_score(db: Session, users_id: str, category_id: str, score: int):
     score = db.query(models.UsersScore).filter(
         models.UsersScore.users_id == users_id).filter(models.UsersScore.category_id == category_id
-    ).update({models.UsersScore.score: score})
+                                                       ).update({models.UsersScore.score: score})
     db.commit()
     return score
 
@@ -184,3 +184,43 @@ def get_user_scores(db: Session, users_id: str, skip: int = 0, limit: int = 100)
     return db.query(models.UsersScore).filter(
         models.UsersScore.users_id == users_id
     ).offset(skip).limit(limit).all()
+
+
+def get_merch(db: Session, merch_id: str):
+    return db.query(models.Merch).filter(models.Merch.id == merch_id).first()
+
+
+def get_all_merch(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.Merch).offset(skip).limit(limit).all()
+
+
+def delete_merch(db: Session, merch_id: str):
+    m = db.query(models.Merch).filter(models.Merch.id == merch_id).first()
+    db.delete(m)
+    db.commit()
+
+
+def create_merch(db: Session, name: str, cost: int, count: int):
+    id = str(uuid.uuid4())
+    db_merch = models.Merch(
+        id=id,
+        name=name,
+        cost=cost,
+        count=count
+    )
+    db.add(db_merch)
+    db.commit()
+    db.refresh(db_merch)
+    return db_merch
+
+
+def update_merch_count(db: Session, merch_id: str, count: int):
+    m = db.query(models.Merch).filter(models.Merch.id == merch_id).update({models.Merch.count: count})
+    db.commit()
+    return m
+
+
+def update_merch_cost(db: Session, merch_id: str, cost: int):
+    m = db.query(models.Merch).filter(models.Merch.id == merch_id).update({models.Merch.cost: cost})
+    db.commit()
+    return m

@@ -13,7 +13,6 @@ from database import SessionLocal, engine
 
 models.Base.metadata.create_all(bind=engine)
 
-
 # db = SessionLocal()
 # db.close()
 
@@ -29,7 +28,7 @@ dp = Dispatcher(bot, storage=storage)
 QUESTION_LINK = "https://t.me/hdl_7bits_bot?start="
 
 
-class AdminBotStates(StatesGroup):
+class AddCategoryStates(StatesGroup):
     add_category = State()
 
 
@@ -42,6 +41,17 @@ class AddQuestionStates(StatesGroup):
     add_question_score = State()
 
 
+class AddMerchStates(StatesGroup):
+    add_merch_name = State()
+    add_merch_cost = State()
+    add_merch_count = State()
+
+
+class UpdateMerchStates(StatesGroup):
+    update_merch_cost = State()
+    update_merch_count = State()
+
+
 async def generate_markup_with_menu():
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("Вернуться в меню", callback_data="menu"))
@@ -49,7 +59,6 @@ async def generate_markup_with_menu():
 
 
 @dp.message_handler(commands=['start'])
-# @logger.log_handler
 async def handle_start_message(message: Message, *args, **kwargs):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
@@ -60,12 +69,14 @@ async def handle_start_message(message: Message, *args, **kwargs):
         InlineKeyboardButton("Показать вопросы", callback_data="ques_show"),
         InlineKeyboardButton("Добавить вопрос", callback_data="ques_add"),
         InlineKeyboardButton("Удалить вопрос", callback_data="ques_delete"),
+        InlineKeyboardButton("Показать мерч", callback_data="merch_show"),
+        InlineKeyboardButton("Добавить мерч", callback_data="merch_add"),
+        InlineKeyboardButton("Удалить мерч", callback_data="merch_delete"),
     )
     await message.answer("Функции", reply_markup=markup)
 
 
 @dp.message_handler(state='*', commands='cancel')
-# @logger.log_handler
 async def cancel_handler(message: types.Message, state: FSMContext, *args, **kwargs):
     current_state = await state.get_state()
     if current_state is None:
@@ -77,9 +88,12 @@ async def cancel_handler(message: types.Message, state: FSMContext, *args, **kwa
 
 
 @dp.callback_query_handler(lambda call: call.data.startswith("menu"), state="*")
-# @logger.log_handler
 async def callback_menu_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
     current_state = await state.get_state()
+
+    async with state.proxy() as data:
+        data.clear()
+
     if current_state is None:
         await handle_start_message(call.message, state)
         return
@@ -89,7 +103,6 @@ async def callback_menu_query(call: CallbackQuery, state: FSMContext, *args, **k
 
 
 @dp.callback_query_handler(lambda call: call.data.startswith("cat_"))
-# @logger.log_handler
 async def callback_category_query(call: CallbackQuery, *args, **kwargs):
     markup = await generate_markup_with_menu()
     if call.data == "cat_show":
@@ -102,7 +115,7 @@ async def callback_category_query(call: CallbackQuery, *args, **kwargs):
         return
 
     elif call.data == "cat_add":
-        await AdminBotStates.add_category.set()
+        await AddCategoryStates.add_category.set()
         await call.message.answer("Введите название категории вопросов", reply_markup=markup)
         return
 
@@ -119,8 +132,7 @@ async def callback_category_query(call: CallbackQuery, *args, **kwargs):
     await call.answer()
 
 
-@dp.message_handler(state=AdminBotStates.add_category)
-# @logger.log_handler
+@dp.message_handler(state=AddCategoryStates.add_category)
 async def process_add_category_name_step(message: Message, state: FSMContext, **kwargs):
     db = SessionLocal()
     category = crud.create_category(db, message.text)
@@ -132,7 +144,6 @@ async def process_add_category_name_step(message: Message, state: FSMContext, **
 
 
 @dp.callback_query_handler(lambda call: call.data.startswith("dl_cat_"))
-# @logger.log_handler
 async def callback_delete_category_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
     cat_id = call.data[len("dl_cat_"):]
     db = SessionLocal()
@@ -148,7 +159,6 @@ async def callback_delete_category_query(call: CallbackQuery, state: FSMContext,
 
 
 @dp.callback_query_handler(lambda call: call.data.startswith("ques_"))
-# @logger.log_handler
 async def callback_question_query(call: CallbackQuery, *args, **kwargs):
     markup = await generate_markup_with_menu()
 
@@ -181,7 +191,6 @@ async def callback_question_query(call: CallbackQuery, *args, **kwargs):
 
 
 @dp.callback_query_handler(lambda call: call.data.startswith("get_ques_"))
-# @logger.log_handler
 async def callback_get_question_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
     ques_id = call.data[len("get_ques_"):]
     db = SessionLocal()
@@ -201,7 +210,6 @@ async def callback_get_question_query(call: CallbackQuery, state: FSMContext, *a
 
 
 @dp.callback_query_handler(lambda call: call.data.startswith("dl_ques_"))
-# @logger.log_handler
 async def callback_delete_question_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
     ques_id = call.data[len("dl_ques_"):]
     db = SessionLocal()
@@ -217,7 +225,6 @@ async def callback_delete_question_query(call: CallbackQuery, state: FSMContext,
 
 
 @dp.message_handler(state=AddQuestionStates.add_question_name)
-# @logger.log_handler
 async def add_question_name_step(message: Message, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
     db = SessionLocal()
@@ -239,7 +246,6 @@ async def add_question_name_step(message: Message, state: FSMContext, *args, **k
 
 @dp.callback_query_handler(lambda call: call.data.startswith("add_ques_cat_"),
                            state=AddQuestionStates.add_question_category)
-# @logger.log_handler
 async def process_add_question_category_step(call: CallbackQuery, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
 
@@ -260,7 +266,6 @@ async def process_add_question_category_step(call: CallbackQuery, state: FSMCont
 
 
 @dp.message_handler(state=AddQuestionStates.add_question_text, content_types=[ContentType.PHOTO, ContentType.TEXT])
-# @logger.log_handler
 async def process_add_question_text_step(message: Message, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
 
@@ -273,7 +278,6 @@ async def process_add_question_text_step(message: Message, state: FSMContext, *a
 
 
 @dp.message_handler(state=AddQuestionStates.add_question_answer_count)
-# @logger.log_handler
 async def process_add_question_answer_step(message: Message, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
 
@@ -288,7 +292,6 @@ async def process_add_question_answer_step(message: Message, state: FSMContext, 
 
 
 @dp.message_handler(state=AddQuestionStates.add_question_correct_answers)
-# @logger.log_handler
 async def process_add_question_cor_answer_step(message: Message, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
 
@@ -303,7 +306,6 @@ async def process_add_question_cor_answer_step(message: Message, state: FSMConte
 
 
 @dp.message_handler(state=AddQuestionStates.add_question_score)
-# @logger.log_handler
 async def process_add_question_score_step(message: Message, state: FSMContext, *args, **kwargs):
     async with state.proxy() as data:
         data["score"] = int(message.text)
@@ -334,6 +336,190 @@ async def process_add_question_score_step(message: Message, state: FSMContext, *
         f"Ссылка на вопрос: {link}"
     )
     await state.finish()
+    await handle_start_message(message, state)
+
+
+@dp.callback_query_handler(lambda call: call.data.startswith("merch_"))
+async def callback_merch_query(call: CallbackQuery, *args, **kwargs):
+    markup = await generate_markup_with_menu()
+
+    if call.data == "merch_show":
+        db = SessionLocal()
+        merch = crud.get_all_merch(db)
+        db.close()
+        buttons = [
+            InlineKeyboardButton(
+                f"{m.name}: {m.cost} очков, {m.count} шт",
+                callback_data="get_merch_" + str(m.id)
+            )
+            for m in merch
+        ]
+        markup.row_width = 1
+        markup.add(*buttons)
+        reply = f"Доступный мерч:"
+        await call.message.answer(reply, reply_markup=markup)
+
+    elif call.data == "merch_add":
+        await AddMerchStates.add_merch_name.set()
+        await call.message.answer("Введите название мерча", reply_markup=markup)
+        return
+
+    elif call.data == "merch_delete":
+        db = SessionLocal()
+        merch = crud.get_all_merch(db)
+        db.close()
+        buttons = [InlineKeyboardButton(m.name, callback_data="dl_merch_" + str(m.id)) for m in merch]
+        markup.row_width = 1
+        markup.add(*buttons)
+        await call.message.answer("Выберите мерч, который хотите удалить", reply_markup=markup)
+        return
+
+    await call.answer()
+
+
+@dp.message_handler(state=AddMerchStates.add_merch_name)
+async def add_merch_name_step(message: Message, state: FSMContext, *args, **kwargs):
+    markup = await generate_markup_with_menu()
+
+    async with state.proxy() as data:
+        data["name"] = message.text
+
+    await AddMerchStates.next()
+    await message.answer(
+        f"Введите стоимость мерча",
+        reply_markup=markup
+    )
+
+
+@dp.message_handler(state=AddMerchStates.add_merch_cost)
+async def add_merch_cost_step(message: Message, state: FSMContext, *args, **kwargs):
+    markup = await generate_markup_with_menu()
+
+    async with state.proxy() as data:
+        data["cost"] = int(message.text)
+
+    await AddMerchStates.next()
+    await message.answer(
+        f"Введите количество мерча",
+        reply_markup=markup
+    )
+
+
+@dp.message_handler(state=AddMerchStates.add_merch_count)
+async def add_merch_count_step(message: Message, state: FSMContext, *args, **kwargs):
+    markup = await generate_markup_with_menu()
+    count = int(message.text)
+
+    async with state.proxy() as data:
+        name, cost = data["name"], data["cost"]
+
+    db = SessionLocal()
+    crud.create_merch(db, name, cost, count)
+    db.close()
+
+    await state.finish()
+    await message.answer(
+        f"Мерч добавлен",
+        reply_markup=markup
+    )
+    await handle_start_message(message, state)
+
+
+@dp.callback_query_handler(lambda call: call.data.startswith("dl_merch_"))
+async def callback_delete_merch_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
+    merch_id = call.data[len("dl_merch_"):]
+    db = SessionLocal()
+    crud.delete_merch(db, merch_id)
+    db.close()
+    markup = call.message.reply_markup
+    buttons = reduce(lambda x, y: x + y, markup.inline_keyboard)
+    buttons = list(filter(lambda x: x.callback_data != call.data, buttons))
+    markup.inline_keyboard.clear()
+    markup.row_width = 1
+    markup.add(*buttons)
+    await call.message.edit_reply_markup(reply_markup=markup)
+
+
+@dp.callback_query_handler(lambda call: call.data.startswith("get_merch_"))
+async def callback_get_merch_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
+    markup = await generate_markup_with_menu()
+
+    merch_id = call.data[len("get_merch_"):]
+    db = SessionLocal()
+    merch = crud.get_merch(db, merch_id)
+    db.close()
+    reply = f"{merch.name}: {merch.cost} очков, {merch.count} шт"
+
+    buttons = [
+        InlineKeyboardButton("Изменить стоимость", callback_data=f"upd_merch_cost_{merch_id}"),
+        InlineKeyboardButton("Изменить количество", callback_data=f"upd_merch_count_{merch_id}"),
+    ]
+    markup.add(*buttons)
+    await call.message.answer(reply, reply_markup=markup)
+
+
+@dp.callback_query_handler(lambda call: call.data.startswith("upd_merch_"))
+async def callback_update_merch_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
+    markup = await generate_markup_with_menu()
+
+    if call.data.startswith("upd_merch_cost_"):
+        merch_id = call.data[len("upd_merch_cost_"):]
+        async with state.proxy() as data:
+            data["merch_id"] = merch_id
+
+        reply = "Введите новую стоимость"
+        await UpdateMerchStates.update_merch_cost.set()
+        await call.message.answer(reply, reply_markup=markup)
+
+    elif call.data.startswith("upd_merch_count_"):
+        merch_id = call.data[len("upd_merch_count_"):]
+        async with state.proxy() as data:
+            data["merch_id"] = merch_id
+
+        reply = "Введите новое количество"
+        await UpdateMerchStates.update_merch_count.set()
+        await call.message.answer(reply, reply_markup=markup)
+
+    await call.answer()
+
+
+@dp.message_handler(state=UpdateMerchStates.update_merch_cost)
+async def callback_update_merch_cost(message: Message, state: FSMContext, *args, **kwargs):
+    markup = await generate_markup_with_menu()
+    cost = int(message.text)
+
+    async with state.proxy() as data:
+        merch_id = data["merch_id"]
+
+    db = SessionLocal()
+    crud.update_merch_cost(db, merch_id, cost)
+    db.close()
+
+    await state.finish()
+    await message.answer(
+        f"Мерч обновлен",
+        reply_markup=markup
+    )
+    await handle_start_message(message, state)
+
+
+@dp.message_handler(state=UpdateMerchStates.update_merch_count)
+async def callback_update_merch_count(message: Message, state: FSMContext, *args, **kwargs):
+    markup = await generate_markup_with_menu()
+    count = int(message.text)
+
+    async with state.proxy() as data:
+        merch_id = data["merch_id"]
+
+    db = SessionLocal()
+    crud.update_merch_count(db, merch_id, count)
+    db.close()
+
+    await state.finish()
+    await message.answer(
+        f"Мерч обновлен",
+        reply_markup=markup
+    )
     await handle_start_message(message, state)
 
 
