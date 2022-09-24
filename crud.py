@@ -164,7 +164,8 @@ def create_user_score(db: Session, users_id: str, category_id: str):
     db_users_score = models.UsersScore(
         users_id=users_id,
         category_id=category_id,
-        score=0
+        score=0,
+        active=True
     )
     db.add(db_users_score)
     db.commit()
@@ -179,6 +180,13 @@ def update_user_score(db: Session, users_id: str, category_id: str, score: int):
     db.commit()
     return score
 
+
+def update_user_score_active(db: Session, users_id: str, category_id: str, active: bool):
+    score = db.query(models.UsersScore).filter(
+        models.UsersScore.users_id == users_id).filter(models.UsersScore.category_id == category_id
+                                                       ).update({models.UsersScore.active: active})
+    db.commit()
+    return score
 
 def get_user_scores(db: Session, users_id: str, skip: int = 0, limit: int = 100):
     return db.query(models.UsersScore).filter(
@@ -224,3 +232,44 @@ def update_merch_cost(db: Session, merch_id: str, cost: int):
     m = db.query(models.Merch).filter(models.Merch.id == merch_id).update({models.Merch.cost: cost})
     db.commit()
     return m
+
+
+def get_shop_request(db: Session, shopreq_id: int):
+    return db.query(models.ShopRequest).filter(models.ShopRequest.id == shopreq_id).first()
+
+
+def get_all_shop_request(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.ShopRequest).offset(skip).limit(limit).all()
+
+
+def get_shop_requests_by_chat(db: Session, chat_id: int, skip: int = 0, limit: int = 100):
+    return db.query(models.ShopRequest).filter(models.ShopRequest.chat_id == chat_id).offset(skip).limit(limit).all()
+
+
+def get_shop_requests_by_status(db: Session, chat_id: int, status: str, skip: int = 0, limit: int = 100):
+    return db.query(models.ShopRequest).filter(models.ShopRequest.chat_id == chat_id).filter(
+        models.ShopRequest.status == status).offset(skip).limit(limit).all()
+
+
+def delete_shop_request(db: Session, shopreq_id: int):
+    sr = db.query(models.ShopRequest).filter(models.ShopRequest.id == shopreq_id).first()
+    db.delete(sr)
+    db.commit()
+
+
+def create_shop_request(db: Session, chat_id: int, status: str):
+    db_shop_request = models.ShopRequest(
+        chat_id=chat_id,
+        status=status
+    )
+    db.add(db_shop_request)
+    db.commit()
+    db.refresh(db_shop_request)
+    return db_shop_request
+
+
+def update_shop_request_status(db: Session, shopreq_id: int, status: str):
+    sr = db.query(models.ShopRequest).filter(models.ShopRequest.id == shopreq_id).update(
+        {models.ShopRequest.status: status})
+    db.commit()
+    return sr

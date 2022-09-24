@@ -1,5 +1,15 @@
 {
   "API_key": "5579056273:AAFF3odSn0RSVLwR5hnrAa2VMaQXwFw1lmE",
   "log_chat_id": -785349841,
-  "check_icon": "☑️"
+  "shop_requests_chat_id": -713720925,
+  "check_icon": "☑️",
+  "messages": {
+    "input_email": "Введи свой email",
+    "find_QR": "Тебе нужно найти QR с задачей и отсканировать его",
+    "already_answered": "Ты уже отвечал на этот вопрос :)",
+    "incorrect_answer": "Увы, правильный ответ другой :(",
+    "correct_answer": "Верно!!!",
+    "incorrect_email": "Не похоже не email :/. Попробуй еще раз",
+    "need_register": "Сначала тебе нужно зарегистрироваться. Введи email"
+  }
 }

@@ -76,6 +76,7 @@ class UsersQuestion(UsersQuestionBase):
 
 class UsersScoreBase(BaseModel):
     score: int
+    active: bool
 
 
 class UsersScoreCreate(UsersScoreBase):
@@ -95,12 +96,29 @@ class MerchBase(BaseModel):
     cost: int
     count: int
 
+
 class MerchCreate(MerchBase):
     pass
 
 
 class Merch(MerchBase):
     id: str
+
+    class Config:
+        orm_mode = True
+
+
+class ShopRequestBase(BaseModel):
+    chat_id: int
+    status: str
+
+
+class ShopRequestCreate(ShopRequestBase):
+    pass
+
+
+class ShopRequest(ShopRequestBase):
+    id: int
 
     class Config:
         orm_mode = True

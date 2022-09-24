@@ -1,5 +1,5 @@
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, ARRAY, LargeBinary, PrimaryKeyConstraint
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, ARRAY, LargeBinary, PrimaryKeyConstraint, Identity
 from sqlalchemy.orm import relationship, backref
 
 from database import Base
@@ -52,6 +52,7 @@ class UsersScore(Base):
     users_id = Column(String, ForeignKey("users.id"), primary_key=True, index=True)
     category_id = Column(String, ForeignKey("category.id"), primary_key=True, index=True)
     score = Column(Integer)
+    active = Column(Boolean)
     user = relationship(Users, backref=backref("users_score", cascade="all,delete"))
     category = relationship(Category, backref=backref("users_score", cascade="all,delete"))
 
@@ -63,3 +64,11 @@ class Merch(Base):
     name = Column(String, primary_key=True, index=True)
     cost = Column(Integer)
     count = Column(Integer)
+
+
+class ShopRequest(Base):
+    __tablename__ = "shop_request"
+
+    id = Column(Integer, Identity(always=True, start=1000, increment=1), primary_key=True, index=True)
+    chat_id = Column(Integer, index=True)
+    status = Column(String, index=True)
