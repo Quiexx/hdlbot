@@ -4,6 +4,7 @@ from functools import reduce
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters import Filter
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ContentType
 
@@ -16,6 +17,12 @@ models.Base.metadata.create_all(bind=engine)
 # db = SessionLocal()
 # db.close()
 
+
+class IsAdmin(Filter):
+    key = "is_admin"
+
+    async def check(self, message: types.Message):
+        return message.from_user.id == 427592297
 
 # TODO move token to env
 
@@ -58,8 +65,9 @@ async def generate_markup_with_menu():
     return markup
 
 
-@dp.message_handler(commands=['start'])
+@dp.message_handler(IsAdmin(), commands=['start'])
 async def handle_start_message(message: Message, *args, **kwargs):
+    await message.answer(message.from_user.id)
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
     markup.add(
@@ -76,7 +84,7 @@ async def handle_start_message(message: Message, *args, **kwargs):
     await message.answer("Функции", reply_markup=markup)
 
 
-@dp.message_handler(state='*', commands='cancel')
+@dp.message_handler(IsAdmin(), state='*', commands='cancel')
 async def cancel_handler(message: types.Message, state: FSMContext, *args, **kwargs):
     current_state = await state.get_state()
     if current_state is None:
@@ -87,7 +95,7 @@ async def cancel_handler(message: types.Message, state: FSMContext, *args, **kwa
     await handle_start_message(message, state)
 
 
-@dp.callback_query_handler(lambda call: call.data.startswith("menu"), state="*")
+@dp.callback_query_handler(IsAdmin(), lambda call: call.data.startswith("menu"), state="*")
 async def callback_menu_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
     current_state = await state.get_state()
 
@@ -102,7 +110,7 @@ async def callback_menu_query(call: CallbackQuery, state: FSMContext, *args, **k
     await handle_start_message(call.message, state)
 
 
-@dp.callback_query_handler(lambda call: call.data.startswith("cat_"))
+@dp.callback_query_handler(IsAdmin(), lambda call: call.data.startswith("cat_"))
 async def callback_category_query(call: CallbackQuery, *args, **kwargs):
     markup = await generate_markup_with_menu()
     if call.data == "cat_show":
@@ -132,7 +140,7 @@ async def callback_category_query(call: CallbackQuery, *args, **kwargs):
     await call.answer()
 
 
-@dp.message_handler(state=AddCategoryStates.add_category)
+@dp.message_handler(IsAdmin(), state=AddCategoryStates.add_category)
 async def process_add_category_name_step(message: Message, state: FSMContext, **kwargs):
     db = SessionLocal()
     category = crud.create_category(db, message.text)
@@ -143,7 +151,7 @@ async def process_add_category_name_step(message: Message, state: FSMContext, **
     await handle_start_message(message, state)
 
 
-@dp.callback_query_handler(lambda call: call.data.startswith("dl_cat_"))
+@dp.callback_query_handler(IsAdmin(), lambda call: call.data.startswith("dl_cat_"))
 async def callback_delete_category_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
     cat_id = call.data[len("dl_cat_"):]
     db = SessionLocal()
@@ -158,7 +166,7 @@ async def callback_delete_category_query(call: CallbackQuery, state: FSMContext,
     await call.message.edit_reply_markup(reply_markup=markup)
 
 
-@dp.callback_query_handler(lambda call: call.data.startswith("ques_"))
+@dp.callback_query_handler(IsAdmin(), lambda call: call.data.startswith("ques_"))
 async def callback_question_query(call: CallbackQuery, *args, **kwargs):
     markup = await generate_markup_with_menu()
 
@@ -190,7 +198,7 @@ async def callback_question_query(call: CallbackQuery, *args, **kwargs):
     await call.answer()
 
 
-@dp.callback_query_handler(lambda call: call.data.startswith("get_ques_"))
+@dp.callback_query_handler(IsAdmin(), lambda call: call.data.startswith("get_ques_"))
 async def callback_get_question_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
     ques_id = call.data[len("get_ques_"):]
     db = SessionLocal()
@@ -209,7 +217,7 @@ async def callback_get_question_query(call: CallbackQuery, state: FSMContext, *a
     await handle_start_message(call.message, state)
 
 
-@dp.callback_query_handler(lambda call: call.data.startswith("dl_ques_"))
+@dp.callback_query_handler(IsAdmin(), lambda call: call.data.startswith("dl_ques_"))
 async def callback_delete_question_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
     ques_id = call.data[len("dl_ques_"):]
     db = SessionLocal()
@@ -224,7 +232,7 @@ async def callback_delete_question_query(call: CallbackQuery, state: FSMContext,
     await call.message.edit_reply_markup(reply_markup=markup)
 
 
-@dp.message_handler(state=AddQuestionStates.add_question_name)
+@dp.message_handler(IsAdmin(), state=AddQuestionStates.add_question_name)
 async def add_question_name_step(message: Message, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
     db = SessionLocal()
@@ -244,7 +252,7 @@ async def add_question_name_step(message: Message, state: FSMContext, *args, **k
     )
 
 
-@dp.callback_query_handler(lambda call: call.data.startswith("add_ques_cat_"),
+@dp.callback_query_handler(IsAdmin(), lambda call: call.data.startswith("add_ques_cat_"),
                            state=AddQuestionStates.add_question_category)
 async def process_add_question_category_step(call: CallbackQuery, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
@@ -265,7 +273,7 @@ async def process_add_question_category_step(call: CallbackQuery, state: FSMCont
     )
 
 
-@dp.message_handler(state=AddQuestionStates.add_question_text, content_types=[ContentType.PHOTO, ContentType.TEXT])
+@dp.message_handler(IsAdmin(), state=AddQuestionStates.add_question_text, content_types=[ContentType.PHOTO, ContentType.TEXT])
 async def process_add_question_text_step(message: Message, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
 
@@ -277,7 +285,7 @@ async def process_add_question_text_step(message: Message, state: FSMContext, *a
     await message.answer("Введите кол-во вариантов ответа", reply_markup=markup)
 
 
-@dp.message_handler(state=AddQuestionStates.add_question_answer_count)
+@dp.message_handler(IsAdmin(), state=AddQuestionStates.add_question_answer_count)
 async def process_add_question_answer_step(message: Message, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
 
@@ -291,7 +299,7 @@ async def process_add_question_answer_step(message: Message, state: FSMContext, 
     )
 
 
-@dp.message_handler(state=AddQuestionStates.add_question_correct_answers)
+@dp.message_handler(IsAdmin(), state=AddQuestionStates.add_question_correct_answers)
 async def process_add_question_cor_answer_step(message: Message, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
 
@@ -305,7 +313,7 @@ async def process_add_question_cor_answer_step(message: Message, state: FSMConte
     )
 
 
-@dp.message_handler(state=AddQuestionStates.add_question_score)
+@dp.message_handler(IsAdmin(), state=AddQuestionStates.add_question_score)
 async def process_add_question_score_step(message: Message, state: FSMContext, *args, **kwargs):
     async with state.proxy() as data:
         data["score"] = int(message.text)
@@ -339,7 +347,7 @@ async def process_add_question_score_step(message: Message, state: FSMContext, *
     await handle_start_message(message, state)
 
 
-@dp.callback_query_handler(lambda call: call.data.startswith("merch_"))
+@dp.callback_query_handler(IsAdmin(), lambda call: call.data.startswith("merch_"))
 async def callback_merch_query(call: CallbackQuery, *args, **kwargs):
     markup = await generate_markup_with_menu()
 
@@ -377,7 +385,7 @@ async def callback_merch_query(call: CallbackQuery, *args, **kwargs):
     await call.answer()
 
 
-@dp.message_handler(state=AddMerchStates.add_merch_name)
+@dp.message_handler(IsAdmin(), state=AddMerchStates.add_merch_name)
 async def add_merch_name_step(message: Message, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
 
@@ -391,7 +399,7 @@ async def add_merch_name_step(message: Message, state: FSMContext, *args, **kwar
     )
 
 
-@dp.message_handler(state=AddMerchStates.add_merch_cost)
+@dp.message_handler(IsAdmin(), state=AddMerchStates.add_merch_cost)
 async def add_merch_cost_step(message: Message, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
 
@@ -405,7 +413,7 @@ async def add_merch_cost_step(message: Message, state: FSMContext, *args, **kwar
     )
 
 
-@dp.message_handler(state=AddMerchStates.add_merch_count)
+@dp.message_handler(IsAdmin(), state=AddMerchStates.add_merch_count)
 async def add_merch_count_step(message: Message, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
     count = int(message.text)
@@ -425,7 +433,7 @@ async def add_merch_count_step(message: Message, state: FSMContext, *args, **kwa
     await handle_start_message(message, state)
 
 
-@dp.callback_query_handler(lambda call: call.data.startswith("dl_merch_"))
+@dp.callback_query_handler(IsAdmin(), lambda call: call.data.startswith("dl_merch_"))
 async def callback_delete_merch_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
     merch_id = call.data[len("dl_merch_"):]
     db = SessionLocal()
@@ -440,7 +448,7 @@ async def callback_delete_merch_query(call: CallbackQuery, state: FSMContext, *a
     await call.message.edit_reply_markup(reply_markup=markup)
 
 
-@dp.callback_query_handler(lambda call: call.data.startswith("get_merch_"))
+@dp.callback_query_handler(IsAdmin(), lambda call: call.data.startswith("get_merch_"))
 async def callback_get_merch_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
 
@@ -458,7 +466,7 @@ async def callback_get_merch_query(call: CallbackQuery, state: FSMContext, *args
     await call.message.answer(reply, reply_markup=markup)
 
 
-@dp.callback_query_handler(lambda call: call.data.startswith("upd_merch_"))
+@dp.callback_query_handler(IsAdmin(), lambda call: call.data.startswith("upd_merch_"))
 async def callback_update_merch_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
 
@@ -483,7 +491,7 @@ async def callback_update_merch_query(call: CallbackQuery, state: FSMContext, *a
     await call.answer()
 
 
-@dp.message_handler(state=UpdateMerchStates.update_merch_cost)
+@dp.message_handler(IsAdmin(), state=UpdateMerchStates.update_merch_cost)
 async def callback_update_merch_cost(message: Message, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
     cost = int(message.text)
@@ -503,7 +511,7 @@ async def callback_update_merch_cost(message: Message, state: FSMContext, *args,
     await handle_start_message(message, state)
 
 
-@dp.message_handler(state=UpdateMerchStates.update_merch_count)
+@dp.message_handler(IsAdmin(), state=UpdateMerchStates.update_merch_count)
 async def callback_update_merch_count(message: Message, state: FSMContext, *args, **kwargs):
     markup = await generate_markup_with_menu()
     count = int(message.text)

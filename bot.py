@@ -1,6 +1,7 @@
 import json
 import re
 import logging
+from datetime import datetime
 
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -48,10 +49,55 @@ class RegisterUserStates(StatesGroup):
     add_email = State()
 
 
-def extract_unique_code(text):
+async def extract_unique_code(text):
     # Extracts the unique_code from the start command.
     return text.split()[1] if len(text.split()) > 1 else None
 
+
+async def message_to_log(message: Message):
+    # dt_object = datetime.fromtimestamp(timestamp)
+    d_mes = dict(message)
+    try:
+        try:
+            log = "{} - message from {} {} {} - text: {}".format(
+                datetime.fromtimestamp(d_mes["date"]),
+                d_mes["chat"]["first_name"],
+                d_mes["chat"]["last_name"],
+                d_mes["chat"]["username"],
+                d_mes["text"],
+            )
+        except Exception as exc:
+            log = "{} - message in chat {} - text: {}".format(
+                datetime.fromtimestamp(d_mes["date"]),
+                d_mes["chat"]["id"],
+                d_mes["text"]
+            )
+    except Exception as exc:
+        log = str(exc)
+    return log
+
+
+async def call_to_log(call: CallbackQuery):
+    # dt_object = datetime.fromtimestamp(timestamp)
+    d_mes = dict(call)
+    try:
+        try:
+            log = "{} - callback from {} {} {} - data: {}".format(
+                datetime.fromtimestamp(d_mes["message"]["date"]),
+                d_mes["message"]["chat"]["first_name"],
+                d_mes["message"]["chat"]["last_name"],
+                d_mes["message"]["chat"]["username"],
+                d_mes["data"],
+            )
+        except Exception as exc:
+            log = "{} - callback in chat {} - text: {}".format(
+                datetime.fromtimestamp(d_mes["message"]["date"]),
+                d_mes["message"]["chat"]["id"],
+                d_mes["data"]
+            )
+    except Exception as exc:
+        log = str(exc)
+    return log
 
 # @dp.message_handler()
 # async def handle_any_message(message: Message, state: FSMContext, *args, **kwargs):
@@ -59,7 +105,8 @@ def extract_unique_code(text):
 
 @dp.message_handler(ValidSymbols(), commands=['start'], content_types=[ContentType.TEXT])
 async def handle_start_message(message: Message, state: FSMContext, *args, **kwargs):
-    task_code = extract_unique_code(message.text)
+    logging.log(logging.INFO, await message_to_log(message))
+    task_code = await extract_unique_code(message.text)
 
     async with state.proxy() as data:
         if task_code:
@@ -128,6 +175,7 @@ async def handle_start_message(message: Message, state: FSMContext, *args, **kwa
 
 @dp.callback_query_handler(lambda call: call.data.startswith("cb_"))
 async def callback_answer_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
+    logging.log(logging.INFO, await call_to_log(call))
     if call.data == "cb_confirm":
         async with state.proxy() as data:
             q_id = data.get("question")
@@ -138,12 +186,15 @@ async def callback_answer_query(call: CallbackQuery, state: FSMContext, *args, *
         question = crud.get_question(db, q_id)
         user = crud.get_user_by_chat(db, call.message.chat.id)
         category = crud.get_category(db, question.category_id)
-        print(user)
-        print(category)
-        print(question.category_id)
         score = crud.get_user_score(db, user.id, category.id)
         if not score:
             score = crud.create_user_score(db, user.id, category.id)
+            # scores = crud.get_user_scores(db, user.id)
+            # if any([not sc.active for sc in scores]):
+            #     crud.update_user_score_active(db, user.id, category.id, False)
+            reqs = crud.get_shop_requests_by_chat(db, user.chat_id)
+            if any([req.status == "ACCEPTED" for req in reqs]):
+                crud.update_user_score_active(db, user.id, category.id, False)
 
         score_delta = 0
         reply = messages["incorrect_answer"]
@@ -164,13 +215,13 @@ async def callback_answer_query(call: CallbackQuery, state: FSMContext, *args, *
             [f"\n •{cat.name} - {sc.score}" for cat, sc in zip(categoties, scores) if not sc.active])
         reply += reply_scores.format(active_scores, inactive_scores)
 
-        disable_buttons(call)
+        await disable_buttons(call)
         await call.message.edit_reply_markup(reply_markup=call.message.reply_markup)
         await call.message.answer(reply)
         return
 
     elif call.data != "disabled":
-        check_buttons(call)
+        await check_buttons(call)
         async with state.proxy() as data:
             data["current_answers"] = []
             for row in call.message.reply_markup.inline_keyboard:
@@ -183,8 +234,8 @@ async def callback_answer_query(call: CallbackQuery, state: FSMContext, *args, *
         return
 
 
-def check_buttons(call: CallbackQuery):
-    def check_button(b):
+async def check_buttons(call: CallbackQuery):
+    async def check_button(b):
         if b.callback_data == call.data:
             if b.text.startswith(config["check_icon"]):
                 b.text = b.text[2:]
@@ -195,22 +246,23 @@ def check_buttons(call: CallbackQuery):
     keyboard = call.message.reply_markup.inline_keyboard
     for row in keyboard:
         for button in row:
-            check_button(button)
+            await check_button(button)
 
 
-def disable_buttons(call: CallbackQuery):
-    def disable_button(b):
+async def disable_buttons(call: CallbackQuery):
+    async def disable_button(b):
         b.callback_data = 'disabled'
         return b
 
     keyboard = call.message.reply_markup.inline_keyboard
     for row in keyboard:
         for button in row:
-            disable_button(button)
+            await disable_button(button)
 
 
 @dp.message_handler(state=RegisterUserStates.add_email)
 async def register_user(message: Message, state: FSMContext, *args, **kwargs):
+    logging.log(logging.INFO, await message_to_log(message))
     email = message.text
 
     if email.startswith("/"):
@@ -240,11 +292,13 @@ async def register_user(message: Message, state: FSMContext, *args, **kwargs):
 
 @dp.callback_query_handler(lambda call: call.data.startswith("disabled"))
 async def callback_disabled_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
+    logging.log(logging.INFO, await call_to_log(call))
     await call.answer(messages["already_answered"])
 
 
 @dp.message_handler(ValidSymbols(), commands=['scores'], content_types=[ContentType.TEXT])
 async def handle_scores_command(message: Message, state: FSMContext, *args, **kwargs):
+    logging.log(logging.INFO, await message_to_log(message))
     db = SessionLocal()
     user = crud.get_user_by_chat(db, message.chat.id)
     scores = crud.get_user_scores(db, user.id)
@@ -265,6 +319,7 @@ async def handle_scores_command(message: Message, state: FSMContext, *args, **kw
 
 @dp.message_handler(ValidSymbols(), commands=['shop'], content_types=[ContentType.TEXT])
 async def handle_shop_command(message: Message, state: FSMContext, *args, **kwargs):
+    logging.log(logging.INFO, await message_to_log(message))
     db = SessionLocal()
     merch = crud.get_all_merch(db)
     user = crud.get_user_by_chat(db, message.chat.id)
@@ -302,6 +357,7 @@ async def handle_shop_command(message: Message, state: FSMContext, *args, **kwar
 
 @dp.callback_query_handler(lambda call: call.data.startswith("shop_req"))
 async def callback_shopreq_query(call: CallbackQuery, state: FSMContext, *args, **kwargs):
+    logging.log(logging.INFO, await call_to_log(call))
     db = SessionLocal()
     shop_requests = crud.get_shop_requests_by_status(db, call.message.chat.id, "WAITING")
     if shop_requests:
@@ -411,7 +467,6 @@ async def callback_accept_req_query(call: CallbackQuery, state: FSMContext, *arg
     crud.update_shop_request_status(db, requests.id, "ACCEPTED")
     user = crud.get_user_by_chat(db, requests.chat_id)
     scores = crud.get_user_score(db, user.id, cat_id)
-
 
     new_counts = []
     for merch in req_data:
